@@ -35,6 +35,11 @@ if pioutil.is_pio_build():
     if platform_name in [ "usb-host-msc", "usb-host-msc-cdc-msc", "usb-host-msc-cdc-msc-2", "usb-host-msc-cdc-msc-3", "tool-stm32duino", "biqu-bx-workaround", "main" ]:
         platform_name = "framework-arduinoststm32"
 
+    # A tagged-archive URL (e.g. .../2.4.0.zip) yields a non-package name like
+    # "2.4.0"; normalize any non-framework name to the stm32 framework package.
+    if not platform_name.startswith("framework-"):
+        platform_name = "framework-arduinoststm32"
+
     FRAMEWORK_DIR = Path(platform.get_package_dir(platform_name))
     assert FRAMEWORK_DIR.is_dir()
 
