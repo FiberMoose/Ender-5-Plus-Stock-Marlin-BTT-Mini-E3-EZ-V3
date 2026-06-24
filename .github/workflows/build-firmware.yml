@@ -1,0 +1,34 @@
+name: Build SKR Mini E3 V3.0 firmware
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, compat-fixes ]
+    paths:
+      - 'Marlin/**'
+      - 'ini/**'
+      - 'platformio.ini'
+      - '.github/workflows/build-firmware.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build STM32G0B1RE_btt (SKR Mini E3 V3.0)
+        run: pio run -e STM32G0B1RE_btt
+
+      - name: Upload firmware.bin
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-skr-mini-e3-v3
+          path: .pio/build/STM32G0B1RE_btt/firmware.bin
+          if-no-files-found: error
