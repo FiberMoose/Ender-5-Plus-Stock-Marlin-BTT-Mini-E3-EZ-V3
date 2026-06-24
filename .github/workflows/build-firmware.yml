@@ -19,10 +19,12 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.11'
 
       - name: Install PlatformIO
-        run: pip install platformio
+        # pin to the 2022-era toolchain this Marlin was built against;
+        # newer PlatformIO/SCons break its build scripts (deque, KeyError, etc.)
+        run: pip install "platformio==6.1.6"
 
       - name: Build STM32G0B1RE_btt (SKR Mini E3 V3.0)
         run: pio run -e STM32G0B1RE_btt
