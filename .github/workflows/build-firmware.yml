@@ -7,6 +7,7 @@ on:
     paths:
       - 'Marlin/**'
       - 'ini/**'
+      - 'buildroot/**'
       - 'platformio.ini'
       - '.github/workflows/build-firmware.yml'
 
