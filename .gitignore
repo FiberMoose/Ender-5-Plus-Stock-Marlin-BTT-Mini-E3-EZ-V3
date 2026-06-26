@@ -170,3 +170,7 @@ __pycache__
 
 # IOLogger logs
 *_log.csv
+
+# local reference material, not part of firmware source
+reference-official/
+build-out/

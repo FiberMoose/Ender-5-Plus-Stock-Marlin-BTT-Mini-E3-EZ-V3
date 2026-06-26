@@ -52,12 +52,12 @@
 #include "../../module/planner.h"
 #include "../../module/motion.h"
 
-#if DISABLED(LCD_PROGRESS_BAR) && BOTH(FILAMENT_LCD_DISPLAY, SDSUPPORT)
+#if DISABLED(LCD_PROGRESS_BAR) && ALL(FILAMENT_LCD_DISPLAY, HAS_MEDIA)
   #include "../../feature/filwidth.h"
   #include "../../gcode/parser.h"
 #endif
 
-#if EITHER(HAS_COOLER, LASER_COOLANT_FLOW_METER)
+#if ANY(HAS_COOLER, LASER_COOLANT_FLOW_METER)
   #include "../../feature/cooler.h"
 #endif
 
@@ -141,7 +141,7 @@ static uint8_t PanelDetected = 0;
 #if ANY(__AVR__, TARGET_LPC1768, __STM32F1__, ARDUINO_ARCH_SAM, __SAMD51__, __MK20DX256__, __MK64FX512__)
   #define SPI_SEND_ONE(V) SPI.transfer(V);
   #define SPI_SEND_TWO(V) SPI.transfer16(V);
-#elif EITHER(STM32F4xx, STM32F1xx)
+#elif ANY(STM32F4xx, STM32F1xx)
   #define SPI_SEND_ONE(V) SPI.transfer(V, SPI_CONTINUE);
   #define SPI_SEND_TWO(V) SPI.transfer16(V, SPI_CONTINUE);
 #elif defined(ARDUINO_ARCH_ESP32)
@@ -151,7 +151,7 @@ static uint8_t PanelDetected = 0;
 
 #if ANY(__AVR__, ARDUINO_ARCH_SAM, __SAMD51__, __MK20DX256__, __MK64FX512__)
   #define SPI_SEND_SOME(V,L,Z)  SPI.transfer(&V[Z], L);
-#elif EITHER(STM32F4xx, STM32F1xx)
+#elif ANY(STM32F4xx, STM32F1xx)
   #define SPI_SEND_SOME(V,L,Z)  SPI.transfer(&V[Z], L, SPI_CONTINUE);
 #elif ANY(TARGET_LPC1768, __STM32F1__, ARDUINO_ARCH_ESP32)
   #define SPI_SEND_SOME(V,L,Z)  do{ for (uint16_t i = 0; i < L; i++) SPI_SEND_ONE(V[(Z)+i]); }while(0)
@@ -290,7 +290,7 @@ uint8_t MarlinUI::read_slow_buttons() {
       Wire.requestFrom((uint8_t)LCD_I2C_ADDRESS, 2, 0, 0, 1);
     #elif defined(STM32F1)
       Wire.requestFrom((uint8_t)LCD_I2C_ADDRESS, (uint8_t)2);
-    #elif EITHER(STM32F4xx, TARGET_LPC1768)
+    #elif ANY(STM32F4xx, TARGET_LPC1768)
       Wire.requestFrom(LCD_I2C_ADDRESS, 2);
     #endif
     encoderDiff += Wire.read();
@@ -299,7 +299,7 @@ uint8_t MarlinUI::read_slow_buttons() {
 }
 
 // Duration in ms, freq in Hz
-void MarlinUI::buzz(const long duration, const uint16_t freq) {
+void MarlinUI::buzz(const long duration, const uint16_t freq/*=0*/) {
   if (!PanelDetected) return;
   if (!sound_on) return;
   #if ENABLED(TFTGLCD_PANEL_SPI)
@@ -596,22 +596,58 @@ FORCE_INLINE void _draw_axis_value(const AxisEnum axis, const char *value, const
 
 #endif // HAS_CUTTER
 
-#if HAS_PRINT_PROGRESS
+#if HAS_PRINT_PROGRESS   // UNTESTED!!!
 
-  FORCE_INLINE void _draw_print_progress() {
-    if (!PanelDetected) return;
-    const uint8_t progress = ui._get_progress();
-    #if ENABLED(SDSUPPORT)
-      lcd_put_u8str(F("SD"));
-    #elif ENABLED(SET_PROGRESS_PERCENT)
-      lcd_put_u8str(F("P:"));
-    #endif
-    if (progress)
-      lcd.print(ui8tostr3rj(progress));
-    else
-      lcd_put_u8str(F("---"));
-    lcd.write('%');
-  }
+  #define TPOFFSET (LCD_WIDTH - 1)
+  static uint8_t timepos = TPOFFSET - 6;
+
+  #if ENABLED(SHOW_PROGRESS_PERCENT)
+    void MarlinUI::drawPercent() {
+      const uint8_t progress = ui.get_progress_percent();
+      if (progress) {
+        lcd_moveto(0, 2);
+        lcd_put_u8str(F(TERN(IS_SD_PRINTING, "SD", "P:")));
+        lcd.print(TERN(PRINT_PROGRESS_SHOW_DECIMALS, permyriadtostr4(ui.get_progress_permyriad()), ui8tostr3rj(progress)));
+        lcd.write('%');
+      }
+    }
+  #endif
+  #if ENABLED(SHOW_REMAINING_TIME)
+    void MarlinUI::drawRemain() {
+      if (printJobOngoing()) {
+        const duration_t remaint = ui.get_remaining_time();
+        char buffer[10];
+        timepos = TPOFFSET - remaint.toDigital(buffer);
+        lcd_moveto(timepos, 1);
+        lcd.write('R');
+        lcd.print(buffer);
+      }
+    }
+  #endif
+  #if ENABLED(SHOW_INTERACTION_TIME)
+    void MarlinUI::drawInter() {
+      const duration_t interactt = ui.interaction_time;
+      if (printingIsActive() && interactt.value) {
+        char buffer[10];
+        timepos = TPOFFSET - interactt.toDigital(buffer);
+        lcd_moveto(timepos, 1);
+        lcd.write('C');
+        lcd.print(buffer);
+      }
+    }
+  #endif
+  #if ENABLED(SHOW_ELAPSED_TIME)
+    void MarlinUI::drawElapsed() {
+      if (printJobOngoing()) {
+        const duration_t elapsedt = print_job_timer.duration();
+        char buffer[10];
+        timepos = TPOFFSET - elapsedt.toDigital(buffer);
+        lcd_moveto(timepos, 1);
+        lcd.write('E');
+        lcd.print(buffer);
+      }
+    }
+  #endif
 
 #endif // HAS_PRINT_PROGRESS
 
@@ -637,7 +673,7 @@ FORCE_INLINE void _draw_axis_value(const AxisEnum axis, const char *value, const
 void MarlinUI::draw_status_message(const bool blink) {
   if (!PanelDetected) return;
   lcd_moveto(0, 3);
-  #if BOTH(FILAMENT_LCD_DISPLAY, SDSUPPORT)
+  #if ALL(FILAMENT_LCD_DISPLAY, HAS_MEDIA)
 
     // Alternate Status message and Filament display
     if (ELAPSED(millis(), next_filament_display)) {
@@ -654,7 +690,7 @@ void MarlinUI::draw_status_message(const bool blink) {
       return;
     }
 
-  #endif // FILAMENT_LCD_DISPLAY && SDSUPPORT
+  #endif // FILAMENT_LCD_DISPLAY && HAS_MEDIA
 
   // Get the UTF8 character count of the string
   uint8_t slen = utf8_strlen(status_message);
@@ -796,23 +832,12 @@ void MarlinUI::draw_status_screen() {
   #endif
 
   //
-  // Line 2 - feedrate, , time
+  // Line 2 - feedrate, progress %, progress time
   //
 
   lcd_moveto(0, 1);
   lcd_put_u8str(F("FR")); lcd.print(i16tostr3rj(feedrate_percentage)); lcd.write('%');
-
-  #if BOTH(SDSUPPORT, HAS_PRINT_PROGRESS)
-    lcd_moveto(LCD_WIDTH / 2 - 3, 1);
-    _draw_print_progress();
-  #endif
-
-  char buffer[10];
-  duration_t elapsed = print_job_timer.duration();
-  uint8_t len = elapsed.toDigital(buffer);
-
-  lcd_moveto((LCD_WIDTH - 1) - len, 1);
-  lcd.write(LCD_STR_CLOCK[0]); lcd.print(buffer);
+  ui.rotate_progress();   // UNTESTED!!!
 
   //
   // Line 3 - progressbar
@@ -839,20 +864,20 @@ void MarlinUI::draw_status_screen() {
     #if DUAL_MIXING_EXTRUDER
       lcd_moveto(0, 4);
       // Two-component mix / gradient instead of XY
-      char mixer_messages[12];
-      const char *mix_label;
+      char mixer_messages[15];
+      PGM_P mix_label;
       #if ENABLED(GRADIENT_MIX)
         if (mixer.gradient.enabled) {
           mixer.update_mix_from_gradient();
-          mix_label = "Gr";
+          mix_label = PSTR("Gr");
         }
         else
       #endif
         {
           mixer.update_mix_from_vtool();
-          mix_label = "Mx";
+          mix_label = PSTR("Mx");
         }
-      sprintf_P(mixer_messages, PSTR("%s %d;%d%% "), mix_label, int(mixer.mix[0]), int(mixer.mix[1]));
+      sprintf_P(mixer_messages, PSTR(S_FMT " %d;%d%% "), mix_label, int(mixer.mix[0]), int(mixer.mix[1]));
       lcd_put_u8str(mixer_messages);
     #endif
   #endif
@@ -1013,7 +1038,7 @@ void MarlinUI::draw_status_screen() {
     lcd.print_line();
   }
 
-  #if ENABLED(SDSUPPORT)
+  #if HAS_MEDIA
 
     void MenuItem_sdbase::draw(const bool sel, const uint8_t row, FSTR_P const, CardReader &theCard, const bool isDir) {
       if (!PanelDetected) return;
@@ -1026,7 +1051,7 @@ void MarlinUI::draw_status_screen() {
       lcd.print_line();
     }
 
-  #endif // SDSUPPORT
+  #endif // HAS_MEDIA
 
   #if ENABLED(LCD_HAS_STATUS_INDICATORS)
 

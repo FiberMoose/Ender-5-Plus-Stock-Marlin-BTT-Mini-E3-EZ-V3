@@ -38,8 +38,15 @@ uint8_t ControllerFan::speed;
    const controllerFan_settings_t &ControllerFan::settings = controllerFan_defaults;
 #endif
 
+#if ENABLED(FAN_SOFT_PWM)
+  uint8_t ControllerFan::soft_pwm_speed;
+#endif
+
 void ControllerFan::setup() {
   SET_OUTPUT(CONTROLLER_FAN_PIN);
+  #ifdef CONTROLLER_FAN2_PIN
+    SET_OUTPUT(CONTROLLER_FAN2_PIN);
+  #endif
   init();
 }
 
@@ -89,12 +96,19 @@ void ControllerFan::update() {
     #endif
 
     #if ENABLED(FAN_SOFT_PWM)
-      thermalManager.soft_pwm_controller_speed = speed;
+      soft_pwm_speed = speed;
     #else
       if (PWM_PIN(CONTROLLER_FAN_PIN))
         hal.set_pwm_duty(pin_t(CONTROLLER_FAN_PIN), speed);
       else
         WRITE(CONTROLLER_FAN_PIN, speed > 0);
+
+      #ifdef CONTROLLER_FAN2_PIN
+        if (PWM_PIN(CONTROLLER_FAN2_PIN))
+          hal.set_pwm_duty(pin_t(CONTROLLER_FAN2_PIN), speed);
+        else
+          WRITE(CONTROLLER_FAN2_PIN, speed > 0);
+      #endif
     #endif
   }
 }
