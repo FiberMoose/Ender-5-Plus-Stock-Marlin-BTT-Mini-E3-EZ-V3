@@ -1,3 +1,11 @@
+> ## This repository is archived and has moved
+>
+> Active development is now at **[FiberMoose/ender5plus-skr-mini-e3](https://github.com/FiberMoose/ender5plus-skr-mini-e3)**.
+>
+> The new repo is a clean, reproducible Marlin config: it builds firmware from a pinned Marlin release plus this printer's configuration, with proper versioned releases (flashable `firmware.bin` plus the DGUS screen firmware). Please use it instead of this one.
+
+---
+
 <p align="center"><img src="buildroot/share/pixmaps/logo/marlin-outrun-nf-500.png" height="250" alt="MarlinFirmware's logo" /></p>
 
 This is a customised version of Marlin for the Ender 5 Plus to work with the BTT SKR 3 mainboard and using the stock LCD. 
